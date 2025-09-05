@@ -16,6 +16,11 @@ genai.configure(api_key=GOOGLE_API_KEY)
 st.title("🗿 Sculpture Storyteller with Gemini")
 st.write("Upload a photo or click a picture of a sculpture, and I'll tell you its story, style, and historical background.")
 
+selected_model = st.selectbox(
+    "Choose Gemini Model:",
+    ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-2.5-pro"],
+    index=3  # default to pro
+)
 # Session state setup
 if "story_text" not in st.session_state:
     st.session_state.story_text = ""
@@ -75,7 +80,7 @@ if image_source:
     image.save(image_bytes, format="PNG")
     image_bytes = image_bytes.getvalue()
 
-    model = genai.GenerativeModel("gemini-2.5-pro")
+    model = genai.GenerativeModel(selected_model)
 
     if st.button("Get Sculpture Story"):
         with st.spinner("Analyzing the sculpture..."):
@@ -109,7 +114,7 @@ if st.session_state.story_text:
     if st.button("🔊 Play Summarised Audio"):
         with st.spinner("Summarising and generating voice..."):
             summary = genai.GenerativeModel("gemini-2.5-flash").generate_content(
-                f"Summarise this in simple {selected_language} for narration: {st.session_state.story_text} IN AROUND 500 WORDS"
+                f"Summarise this in simple {selected_language} for narration: {st.session_state.story_text} IN AROUND 500 WORDS, not more than 1.5 mins"
             ).text
 
             st.session_state.summary = summary
