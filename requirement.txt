@@ -3,3 +3,4 @@ Pillow>=10.2.0
 google-generativeai>=0.3.0
 deep-translator>=1.11.4
 gTTS>=2.5.0
+textwrap3
