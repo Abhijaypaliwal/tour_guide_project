@@ -1,6 +1,6 @@
 streamlit>=1.32.0
 Pillow>=10.2.0
 google-generativeai
-deep-translator>
+deep-translator
 gTTS>=2.5.0
 textwrap3
