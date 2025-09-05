@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 from PIL import Image
 import google.generativeai as genai
@@ -6,18 +8,23 @@ from deep_translator import GoogleTranslator
 import textwrap
 from gtts import gTTS
 
+
 # Load Gemini API key
 GOOGLE_API_KEY= "AIzaSyApSLRRJYndtVyPxMHL-ugqSDsey_3U--I"
 genai.configure(api_key=GOOGLE_API_KEY)
 
 st.title("🗿 Sculpture Storyteller with Gemini")
-st.write("Upload a photo of a statue or sculpture, and I'll tell you its story, style, and historical background.")
+st.write("Upload a photo or click a picture of a sculpture, and I'll tell you its story, style, and historical background.")
 
 # Session state setup
 if "story_text" not in st.session_state:
     st.session_state.story_text = ""
 if "summary" not in st.session_state:
     st.session_state.summary = ""
+if "open_camera" not in st.session_state:
+    st.session_state.open_camera = False
+if "captured_image" not in st.session_state:
+    st.session_state.captured_image = None
 
 languages = {
     "English": "en",
@@ -27,10 +34,26 @@ languages = {
     "Telugu": "te"
 }
 
+# File uploader
 uploaded_file = st.file_uploader("Upload a sculpture image", type=["jpg", "jpeg", "png"])
+
+# Camera control
+if not st.session_state.open_camera and st.button("📷 Open Camera"):
+    st.session_state.open_camera = True
+
+camera_file = None
+if st.session_state.open_camera:
+    camera_file = st.camera_input("Take a picture with your webcam")
+
+    if camera_file:
+        st.session_state.captured_image = camera_file
+        st.session_state.open_camera = False  # ✅ Close camera after capture
+
+# Use uploaded file > captured photo
+image_source = uploaded_file if uploaded_file else st.session_state.captured_image
+
 place_name = st.text_input("Enter the temple or place name (optional)", placeholder="e.g., Belur Temple, Karnataka")
 selected_language = st.selectbox("Select story language:", list(languages.keys()), index=0)
-
 
 def translate_text(text, target_lang):
     max_len = 4999
@@ -44,10 +67,9 @@ def translate_text(text, target_lang):
             translated_chunks.append(f"[Translation Error: {e}]")
     return " ".join(translated_chunks)
 
-
-if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Sculpture", use_column_width=True)
+if image_source:
+    image = Image.open(image_source)
+    st.image(image, caption="Selected Sculpture", use_column_width=True)
 
     image_bytes = io.BytesIO()
     image.save(image_bytes, format="PNG")
@@ -75,16 +97,14 @@ if uploaded_file:
             )
             story_text = response.text
 
-            # Translate if not English
             if selected_language != "English":
                 story_text = translate_text(story_text, languages[selected_language])
 
-            st.session_state.story_text = story_text  # ✅ Save in session
-
+            st.session_state.story_text = story_text
             st.success(f"📖 Story in {selected_language}:")
             st.write(st.session_state.story_text)
 
-# Audio button (only show if story exists)
+# Audio button
 if st.session_state.story_text:
     if st.button("🔊 Play Summarised Audio"):
         with st.spinner("Summarising and generating voice..."):
@@ -92,9 +112,7 @@ if st.session_state.story_text:
                 f"Summarise this in simple {selected_language} for narration: {st.session_state.story_text} IN AROUND 500 WORDS"
             ).text
 
-            st.session_state.summary = summary  # ✅ Save summary
-
-            # Convert summary to voice
+            st.session_state.summary = summary
             tts = gTTS(text=summary, lang=languages[selected_language])
             tts.save("story.mp3")
 
