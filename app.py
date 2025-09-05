@@ -1,4 +1,5 @@
 
+# Load Gemini API key
 
 import streamlit as st
 from PIL import Image
@@ -21,6 +22,7 @@ selected_model = st.selectbox(
     ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-2.5-pro"],
     index=3  # default to pro
 )
+
 # Session state setup
 if "story_text" not in st.session_state:
     st.session_state.story_text = ""
@@ -30,6 +32,8 @@ if "open_camera" not in st.session_state:
     st.session_state.open_camera = False
 if "captured_image" not in st.session_state:
     st.session_state.captured_image = None
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []  # ✅ store Q&A for chat
 
 languages = {
     "English": "en",
@@ -49,10 +53,9 @@ if not st.session_state.open_camera and st.button("📷 Open Camera"):
 camera_file = None
 if st.session_state.open_camera:
     camera_file = st.camera_input("Take a picture with your webcam")
-
     if camera_file:
         st.session_state.captured_image = camera_file
-        st.session_state.open_camera = False  # ✅ Close camera after capture
+        st.session_state.open_camera = False
 
 # Use uploaded file > captured photo
 image_source = uploaded_file if uploaded_file else st.session_state.captured_image
@@ -106,6 +109,7 @@ if image_source:
                 story_text = translate_text(story_text, languages[selected_language])
 
             st.session_state.story_text = story_text
+            st.session_state.chat_history = [("System", story_text)]  # ✅ start chat with story
             st.success(f"📖 Story in {selected_language}:")
             st.write(st.session_state.story_text)
 
@@ -113,10 +117,9 @@ if image_source:
 if st.session_state.story_text:
     if st.button("🔊 Play Summarised Audio"):
         with st.spinner("Summarising and generating voice..."):
-            summary = genai.GenerativeModel("gemini-2.5-flash").generate_content(
+            summary = genai.GenerativeModel(selected_model).generate_content(
                 f"Summarise this in simple {selected_language} for narration: {st.session_state.story_text} IN AROUND 500 WORDS, not more than 1.5 mins"
             ).text
-
             st.session_state.summary = summary
             tts = gTTS(text=summary, lang=languages[selected_language])
             tts.save("story.mp3")
@@ -124,3 +127,26 @@ if st.session_state.story_text:
             audio_file = open("story.mp3", "rb")
             audio_bytes = audio_file.read()
             st.audio(audio_bytes, format="audio/mp3")
+
+# ✅ Chat Section
+if st.session_state.story_text:
+    st.subheader("💬 Ask Questions about the Sculpture")
+
+    user_input = st.text_input("Your question:")
+    if st.button("Ask"):
+        if user_input:
+            with st.spinner("Thinking..."):
+                chat_model = genai.GenerativeModel(selected_model)
+                response = chat_model.generate_content(
+                    f"Based on the following story, answer the user's question clearly:\n\nStory:\n{st.session_state.story_text}\n\nUser's Question: {user_input}"
+                )
+                answer = response.text
+                st.session_state.chat_history.append(("You", user_input))
+                st.session_state.chat_history.append(("Guide", answer))
+
+    # Display chat history
+    for role, msg in st.session_state.chat_history:
+        if role == "You":
+            st.markdown(f"**🧑 You:** {msg}")
+        else:
+            st.markdown(f"**🕉️ Guide:** {msg}")
